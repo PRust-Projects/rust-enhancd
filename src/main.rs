@@ -1,7 +1,47 @@
 mod database;
+mod renhancd_error;
+mod subcommands;
 
 use crate::database::Database;
-use clap::clap_app;
+use crate::renhancd_error::{error_and_exit, ErrorExt};
+use clap::{clap_app, ArgMatches};
+use dirs::{config_dir, home_dir};
+use std::fs::create_dir;
+
+fn parse_subcommands(main_args: ArgMatches) {
+    if main_args.subcommand_name().is_none() {
+        println!("This app allows you to persistently store a list of directories weighted based");
+        println!("on access frequency.\n");
+        println!("Run `rust-enhancd help` for more information!");
+    }
+
+    let mut configdir =
+        config_dir().unwrap_or_error_and_exit("Cannot retrieve the config directory");
+    configdir.push("rust_enhancd");
+    create_dir(&configdir).unwrap_or_error_and_exit(&format!(
+        "Cannot create the directory: {}",
+        configdir.to_str().unwrap()
+    ));
+
+    configdir.push("renhancd.db");
+    let mut db = Database::new(configdir.to_str().unwrap())
+        .unwrap_or_error_and_exit("There was an error loading the database!");
+
+    if let Some(args) = main_args.subcommand_matches("insert") {
+        subcommands::insert::parse(&mut db, args);
+    }
+    if let Some(args) = main_args.subcommand_matches("update") {
+        subcommands::update::parse(&mut db, args);
+    }
+    if let Some(args) = main_args.subcommand_matches("delete") {
+        subcommands::delete::parse(&mut db, args);
+    }
+    if let Some(args) = main_args.subcommand_matches("getkeys") {
+        subcommands::getkeys::parse(&mut db, args);
+    }
+
+    db.save().exit_if_err("Unable to save the database!");
+}
 
 fn main() {
     let matches = clap_app!(rust_enhancd =>
@@ -20,46 +60,5 @@ fn main() {
                              (@arg path: +required "The path to delete"))
                             (@subcommand getkeys =>
                              (about: "Get all the path from the database ordered by weight"))).get_matches();
-    if matches.subcommand_name().is_none() {
-        println!("This app allows you to persistently store a list of directories weighted based on access frequency.\n");
-        println!("Run `rust-enhancd help` for more information!");
-        
-    }
-
-    let mut db = Database::new("renhancd.db").expect("There was an error loading the database!");
-
-    if let Some(args) = matches.subcommand_matches("insert") {
-        let path = args.value_of("path").unwrap();
-        let weight = args.value_of("weight").unwrap();
-        if !db.insert(path.to_string(), weight.parse().expect("The weight should be an integer!")) {
-            panic!("The path was not inserted successfully!");
-        }
-    }
-    if let Some(args) = matches.subcommand_matches("update") {
-        let path = args.value_of("path").unwrap();
-        if let Some(weight) = db.get(path) {
-            if !db.update(path.to_string(), *weight + 1) {
-                panic!("The path was not updated successfully!");
-            }
-        } else {
-            panic!("The path cannot be found!");
-        }
-    }
-    if let Some(args) = matches.subcommand_matches("delete") {
-        let path = args.value_of("path").unwrap();
-        if !db.delete(path) {
-            panic!("The path was not deleted successfully!");
-        }
-    }
-    if let Some(_) = matches.subcommand_matches("getkeys") {
-        if let Some(ordered_keys) = db.ordered_keys() {
-            for path in &ordered_keys {
-                println!("{}", path);
-            }
-        }
-    }
-
-    if let Err(e) = db.save() {
-        panic!(e);
-    }
+    parse_subcommands(matches);
 }

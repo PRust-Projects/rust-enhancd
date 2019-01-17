@@ -6,6 +6,9 @@ edition = "2018"
 
 [dependencies]
 clap = "2.32"
+colored = "1.7"
+dirs = "1.0.4"
+file-walkers = { git = "https://github.com/PRust-Projects/file-walkers.git" }
 regex = "1"
 rustc-hash = "1.0"
 serde = "1.0"
