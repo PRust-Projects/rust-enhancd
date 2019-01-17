@@ -6,6 +6,7 @@ use crate::database::Database;
 use crate::renhancd_error::{error_and_exit, ErrorExt};
 use clap::{clap_app, ArgMatches};
 use dirs::{config_dir, home_dir};
+use file_walkers::parallel;
 use std::fs::create_dir;
 
 fn parse_subcommands(main_args: ArgMatches) {
@@ -26,6 +27,7 @@ fn parse_subcommands(main_args: ArgMatches) {
     configdir.push("renhancd.db");
     let mut db = Database::new(configdir.to_str().unwrap())
         .unwrap_or_error_and_exit("There was an error loading the database!");
+    update_database(&mut db);
 
     if let Some(args) = main_args.subcommand_matches("insert") {
         subcommands::insert::parse(&mut db, args);
@@ -41,6 +43,27 @@ fn parse_subcommands(main_args: ArgMatches) {
     }
 
     db.save().exit_if_err("Unable to save the database!");
+}
+
+fn update_database(db: &mut Database) {
+    if let Some(ordered_keys) = db.ordered_keys() {
+        let homedir = home_dir().unwrap_or_error_and_exit("Cannot retrieve the home directory!");
+
+        let directories = parallel::get_directories(homedir.to_str().unwrap(), false);
+        for key in &ordered_keys {
+            if !directories.contains(key) {
+                if !db.delete(key) {
+                    error_and_exit("Unable to update the database successfully!");
+                }
+            }
+        }
+
+        for dir in &directories {
+            let _ = db.insert(dir.to_string(), 0);
+        }
+
+        return;
+    }
 }
 
 fn main() {
