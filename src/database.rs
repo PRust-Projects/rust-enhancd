@@ -58,7 +58,7 @@ impl<'b> Database<'b> {
         }
     }
 
-    pub fn delete(&mut self, path: &'b str) -> bool {
+    pub fn delete(&mut self, path: &str) -> bool {
         self.data.remove(path).is_some()
     }
 
