@@ -7,7 +7,7 @@ use crate::renhancd_error::{error_and_exit, ErrorExt};
 use clap::{clap_app, ArgMatches};
 use dirs::{config_dir, home_dir};
 use file_walkers::parallel;
-use std::fs::create_dir;
+use std::fs::create_dir_all;
 
 fn parse_subcommands(main_args: ArgMatches) {
     if main_args.subcommand_name().is_none() {
@@ -19,7 +19,7 @@ fn parse_subcommands(main_args: ArgMatches) {
     let mut configdir =
         config_dir().unwrap_or_error_and_exit("Cannot retrieve the config directory");
     configdir.push("rust_enhancd");
-    create_dir(&configdir).unwrap_or_error_and_exit(&format!(
+    create_dir_all(&configdir).unwrap_or_error_and_exit(&format!(
         "Cannot create the directory: {}",
         configdir.to_str().unwrap()
     ));
